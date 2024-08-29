@@ -43,8 +43,7 @@ def main():
         with teradatasql.connect(
             host=conn_details["host"],
             user=conn_details["user"],
-            password=conn_details["password"],
-            database=conn_details["database"]
+            password=conn_details["password"]
         ) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT ip_address FROM db.tbl")
