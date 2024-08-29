@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "host": "dev_teradata_host",
+    "user": "dev_username",
+    "password": "dev_password",
+    "database": "dev_database"
+  },
+  "dr": {
+    "host": "dr_teradata_host",
+    "user": "dr_username",
+    "password": "dr_password",
+    "database": "dr_database"
+  },
+  "prod": {
+    "host": "prod_teradata_host",
+    "user": "prod_username",
+    "password": "prod_password",
+    "database": "prod_database"
+  }
+}
