@@ -1,4 +1,5 @@
 import socket
+import subprocess
 import teradatasql
 import json
 
@@ -11,6 +12,13 @@ def test_port(ip):
     except (socket.timeout, ConnectionRefusedError):
         return False
 
+def ping_server(ip):
+    try:
+        subprocess.run(["ping", "-c", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
 def load_config():
     try:
         with open("teradata_config.json", "r") as config_file:
@@ -19,13 +27,12 @@ def load_config():
         print("Error: Configuration file 'teradata_config.json' not found.")
         return None
 
-
 def main():
     config = load_config()
     if not config:
         return
 
-    debug_mode = config.get("global", {}).get("debug", False)  # Get the global debug flag
+    debug_mode = config.get("global", {}).get("debug", False)
 
     print("Available connections:")
     for conn_name in config:
@@ -46,24 +53,43 @@ def main():
             password=conn_details["password"]
         ) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT ip_address FROM db.tbl")
-            ips = cursor.fetchall()
+            cursor.execute("SELECT hostname, type, cname, ip, description, Active FROM db.tbl")
+            results = cursor.fetchall()
 
-            failed_servers = []
-            for ip in ips:
-                ip = ip[0]
-                if not test_port(ip):
-                    failed_servers.append(ip)
+            active_servers = []
+            inactive_tpa_hsn_servers = []
+            inactive_tms_servers = []
 
-                if debug_mode:
-                    print(f"Testing {ip}: {'Failed' if not test_port(ip) else 'OK'}")
+            for row in results:
+                hostname, server_type, cname, ip, description, active = row
+                if active == "y":
+                    if test_port(ip):
+                        active_servers.append(row)
+                    else:
+                        print(f"Port check failed for {hostname} ({ip})")
+                elif active == "n":
+                    if server_type in ("tpa", "hsn"):
+                        if ping_server(ip):
+                            inactive_tpa_hsn_servers.append(row)
+                        else:
+                            print(f"Ping failed for {hostname} ({ip})")
+                    elif server_type == "tms":
+                        if ping_server(ip):
+                            inactive_tms_servers.append(row)
+                        else:
+                            print(f"Ping failed for {hostname} ({ip})")
 
-            if failed_servers:
-                print("Failed servers:")
-                for failed_ip in failed_servers:
-                    print(f"- {failed_ip}")
-            else:
-                print("All servers are okay.")
+            print("\nACTIVE:")
+            for row in active_servers:
+                print(f"- {row[0]} ({row[3]})")
+
+            print("\nNot active (tpa/hsn):")
+            for row in inactive_tpa_hsn_servers:
+                print(f"- {row[0]} ({row[3]})")
+
+            print("\nNot active (tms):")
+            for row in inactive_tms_servers:
+                print(f"- {row[0]} ({row[3]})")
 
     except teradatasql.Error as e:
         print(f"Error connecting to Teradata: {e}")
