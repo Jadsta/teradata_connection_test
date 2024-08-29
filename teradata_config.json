@@ -1,20 +1,20 @@
-{
+{  
+  "global": {
+    "debug": true
+  },
   "dev": {
     "host": "dev_teradata_host",
     "user": "dev_username",
-    "password": "dev_password",
-    "database": "dev_database"
+    "password": "dev_password"
   },
   "dr": {
     "host": "dr_teradata_host",
     "user": "dr_username",
-    "password": "dr_password",
-    "database": "dr_database"
+    "password": "dr_password"
   },
   "prod": {
     "host": "prod_teradata_host",
     "user": "prod_username",
-    "password": "prod_password",
-    "database": "prod_database"
+    "password": "prod_password"
   }
 }
