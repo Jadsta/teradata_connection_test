@@ -19,14 +19,18 @@ def load_config():
         print("Error: Configuration file 'teradata_config.json' not found.")
         return None
 
+
 def main():
     config = load_config()
     if not config:
         return
 
+    debug_mode = config.get("global", {}).get("debug", False)  # Get the global debug flag
+
     print("Available connections:")
     for conn_name in config:
-        print(f"- {conn_name}")
+        if conn_name != "global":
+            print(f"- {conn_name}")
 
     chosen_conn = input("Enter the connection name (dev, dr, or prod): ").lower()
     if chosen_conn not in config:
@@ -34,6 +38,7 @@ def main():
         return
 
     conn_details = config[chosen_conn]
+
     try:
         with teradatasql.connect(
             host=conn_details["host"],
@@ -42,7 +47,7 @@ def main():
             database=conn_details["database"]
         ) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT ip_address FROM db.tbl")   #This is a view which returns all in config nodes.
+            cursor.execute("SELECT ip_address FROM db.tbl")
             ips = cursor.fetchall()
 
             failed_servers = []
@@ -50,6 +55,9 @@ def main():
                 ip = ip[0]
                 if not test_port(ip):
                     failed_servers.append(ip)
+
+                if debug_mode:
+                    print(f"Testing {ip}: {'Failed' if not test_port(ip) else 'OK'}")
 
             if failed_servers:
                 print("Failed servers:")
