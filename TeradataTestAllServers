@@ -1,0 +1,65 @@
+import socket
+import teradatasql
+import json
+
+def test_port(ip):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(2)
+            s.connect((ip, 1025))
+        return True
+    except (socket.timeout, ConnectionRefusedError):
+        return False
+
+def load_config():
+    try:
+        with open("teradata_config.json", "r") as config_file:
+            return json.load(config_file)
+    except FileNotFoundError:
+        print("Error: Configuration file 'teradata_config.json' not found.")
+        return None
+
+def main():
+    config = load_config()
+    if not config:
+        return
+
+    print("Available connections:")
+    for conn_name in config:
+        print(f"- {conn_name}")
+
+    chosen_conn = input("Enter the connection name (dev, dr, or prod): ").lower()
+    if chosen_conn not in config:
+        print("Invalid connection name. Please choose from dev, dr, or prod.")
+        return
+
+    conn_details = config[chosen_conn]
+    try:
+        with teradatasql.connect(
+            host=conn_details["host"],
+            user=conn_details["user"],
+            password=conn_details["password"],
+            database=conn_details["database"]
+        ) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT ip_address FROM db.tbl")   #This is a view which returns all in config nodes.
+            ips = cursor.fetchall()
+
+            failed_servers = []
+            for ip in ips:
+                ip = ip[0]
+                if not test_port(ip):
+                    failed_servers.append(ip)
+
+            if failed_servers:
+                print("Failed servers:")
+                for failed_ip in failed_servers:
+                    print(f"- {failed_ip}")
+            else:
+                print("All servers are okay.")
+
+    except teradatasql.Error as e:
+        print(f"Error connecting to Teradata: {e}")
+
+if __name__ == "__main__":
+    main()
