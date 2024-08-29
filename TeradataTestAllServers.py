@@ -60,36 +60,46 @@ def main():
             inactive_tpa_hsn_servers = []
             inactive_tms_servers = []
 
+            active_failed = active_succeeded = 0
+            tpa_hsn_failed = tpa_hsn_succeeded = 0
+            tms_failed = tms_succeeded = 0
+
             for row in results:
                 hostname, server_type, cname, ip, description, active = row
                 if active == "y":
                     if test_port(ip):
-                        active_servers.append(row)
+                        active_succeeded += 1
                     else:
-                        print(f"Port check failed for {hostname} ({ip})")
+                        active_failed += 1
+                        active_servers.append(row)
                 elif active == "n":
                     if server_type in ("tpa", "hsn"):
                         if ping_server(ip):
-                            inactive_tpa_hsn_servers.append(row)
+                            tpa_hsn_succeeded += 1
                         else:
-                            print(f"Ping failed for {hostname} ({ip})")
+                            tpa_hsn_failed += 1
+                            inactive_tpa_hsn_servers.append(row)
                     elif server_type == "tms":
                         if ping_server(ip):
-                            inactive_tms_servers.append(row)
+                            tms_succeeded += 1
                         else:
-                            print(f"Ping failed for {hostname} ({ip})")
+                            tms_failed += 1
+                            inactive_tms_servers.append(row)
 
             print("\nACTIVE:")
+            print(f"Total: {active_failed + active_succeeded}, Succeeded: {active_succeeded}, Failed: {active_failed}")
             for row in active_servers:
-                print(f"- {row[0]} ({row[3]})")
+                print(f"- {row[0]} ({row[3]}) - Failed")
 
             print("\nNot active (tpa/hsn):")
+            print(f"Total: {tpa_hsn_failed + tpa_hsn_succeeded}, Succeeded: {tpa_hsn_succeeded}, Failed: {tpa_hsn_failed}")
             for row in inactive_tpa_hsn_servers:
-                print(f"- {row[0]} ({row[3]})")
+                print(f"- {row[0]} ({row[3]}) - Failed")
 
             print("\nNot active (tms):")
+            print(f"Total: {tms_failed + tms_succeeded}, Succeeded: {tms_succeeded}, Failed: {tms_failed}")
             for row in inactive_tms_servers:
-                print(f"- {row[0]} ({row[3]})")
+                print(f"- {row[0]} ({row[3]}) - Failed")
 
     except teradatasql.Error as e:
         print(f"Error connecting to Teradata: {e}")
