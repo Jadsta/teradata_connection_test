@@ -2,6 +2,8 @@ import socket
 import subprocess
 import teradatasql
 import json
+import platform
+import argparse
 
 def test_port(ip):
     try:
@@ -13,10 +15,20 @@ def test_port(ip):
         return False
 
 def ping_server(ip):
+    system = platform.system().lower()
+    if system == "windows":
+        command = ["ping", "-n", "1", ip]
+    else:
+        command = ["ping", "-c", "1", ip]
+
     try:
-        subprocess.run(["ping", "-c", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         return True
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
+        print(f"Ping command failed: {' '.join(command)}")
+        print(f"Error: {e}")
+        print(f"Standard Output: {e.stdout.decode()}")
+        print(f"Standard Error: {e.stderr.decode()}")
         return False
 
 def load_config():
@@ -27,25 +39,7 @@ def load_config():
         print("Error: Configuration file 'teradata_config.json' not found.")
         return None
 
-def main():
-    config = load_config()
-    if not config:
-        return
-
-    debug_mode = config.get("global", {}).get("debug", False)
-
-    print("Available connections:")
-    for conn_name in config:
-        if conn_name != "global":
-            print(f"- {conn_name}")
-
-    chosen_conn = input("Enter the connection name (dev, dr, or prod): ").lower()
-    if chosen_conn not in config:
-        print("Invalid connection name. Please choose from dev, dr, or prod.")
-        return
-
-    conn_details = config[chosen_conn]
-
+def test_connection(conn_details):
     try:
         with teradatasql.connect(
             host=conn_details["host"],
@@ -103,6 +97,46 @@ def main():
 
     except teradatasql.Error as e:
         print(f"Error connecting to Teradata: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Test Teradata connections. This script reads IP addresses from a Teradata table, tests port 1025 for active servers, and pings inactive servers based on their type.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "-s", "--server",
+        help="Specify the server connection (dev, dr, prod, or all). If not provided, the script will prompt for a connection."
+    )
+    args = parser.parse_args()
+
+    config = load_config()
+    if not config:
+        return
+
+    debug_mode = config.get("global", {}).get("debug", False)
+
+    if args.server:
+        if args.server == "all":
+            for conn_name in config:
+                if conn_name != "global":
+                    print(f"\nTesting connection: {conn_name}")
+                    test_connection(config[conn_name])
+        elif args.server in config:
+            test_connection(config[args.server])
+        else:
+            print("Invalid connection name. Please choose from dev, dr, prod, or all.")
+    else:
+        print("Available connections:")
+        for conn_name in config:
+            if conn_name != "global":
+                print(f"- {conn_name}")
+
+        chosen_conn = input("Enter the connection name (dev, dr, or prod): ").lower()
+        if chosen_conn not in config:
+            print("Invalid connection name. Please choose from dev, dr, or prod.")
+            return
+
+        test_connection(config[chosen_conn])
 
 if __name__ == "__main__":
     main()
