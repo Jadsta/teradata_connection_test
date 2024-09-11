@@ -42,8 +42,8 @@ def load_config():
 def test_connection(conn_details):
     try:
         with teradatasql.connect(
-            host=conn_details["host"],
-            user=conn_details["user"],
+            host=conn_details["host"].lower(),
+            user=conn_details["user"].lower(),
             password=conn_details["password"]
         ) as conn:
             cursor = conn.cursor()
@@ -60,20 +60,20 @@ def test_connection(conn_details):
 
             for row in results:
                 hostname, server_type, cname, ip, description, active = row
-                if active == "y":
+                if active.lower() == "y":
                     if test_port(ip):
                         active_succeeded += 1
                     else:
                         active_failed += 1
                         active_servers.append(row)
-                elif active == "n":
-                    if server_type in ("tpa", "hsn"):
+                elif active.lower() == "n":
+                    if server_type.lower() in ("tpa", "hsn"):
                         if ping_server(ip):
                             tpa_hsn_succeeded += 1
                         else:
                             tpa_hsn_failed += 1
                             inactive_tpa_hsn_servers.append(row)
-                    elif server_type == "tms":
+                    elif server_type.lower() == "tms":
                         if ping_server(ip):
                             tms_succeeded += 1
                         else:
@@ -116,13 +116,13 @@ def main():
     debug_mode = config.get("global", {}).get("debug", False)
 
     if args.server:
-        if args.server == "all":
+        if args.server.lower() == "all":
             for conn_name in config:
                 if conn_name != "global":
                     print(f"\nTesting connection: {conn_name}")
                     test_connection(config[conn_name])
-        elif args.server in config:
-            test_connection(config[args.server])
+        elif args.server.lower() in config:
+            test_connection(config[args.server.lower()])
         else:
             print("Invalid connection name. Please choose from dev, dr, prod, or all.")
     else:
